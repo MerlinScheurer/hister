@@ -41,6 +41,7 @@ func configureCommandScopes() {
 	setCommandScope(doctorCmd, executionScopeHybrid, "client-timeout", "search-url")
 	setCommandScope(listURLsCmd, executionScopeHybrid)
 	setCommandScope(listFilesCmd, executionScopeLocal)
+	setCommandScope(recompressCmd, executionScopeLocal)
 	setCommandScope(indexCmd, executionScopeHybrid, "client-timeout")
 	setCommandScope(exportCmd, executionScopeRemote)
 	setCommandScope(importCmd, executionScopeHybrid)

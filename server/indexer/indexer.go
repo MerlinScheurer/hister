@@ -90,6 +90,8 @@ type indexOptions struct {
 	Languages []string
 	// LowAccuracy restricts lingua to its trigram models.
 	LowAccuracy bool
+	// Compression is the codec for stored HTML and favicon data.
+	Compression string
 }
 
 func optionsFromConfig(cfg *config.Config) indexOptions {
@@ -98,6 +100,7 @@ func optionsFromConfig(cfg *config.Config) indexOptions {
 		KeepStopwords:   cfg.Indexer.KeepStopwords,
 		Languages:       cfg.Indexer.Languages,
 		LowAccuracy:     cfg.Indexer.LowAccuracyLanguageDetection(),
+		Compression:     cfg.Indexer.StorageCompression(),
 	}
 }
 
@@ -110,6 +113,7 @@ func (i *Indexer) optionsWith(detectLanguages, keepStopwords bool) indexOptions 
 		KeepStopwords:   keepStopwords,
 		Languages:       i.languages,
 		LowAccuracy:     i.lowAccuracyDetect,
+		Compression:     i.data.compression,
 	}
 }
 
@@ -524,7 +528,7 @@ func initializeIndexer(basePath string, opts indexOptions, embeddingFingerprint 
 		embedCtx:          embedCtx,
 		embedCancel:       embedCancel,
 		maintenance:       newMaintenanceRunner(),
-		data:              newDataStore(filepath.Join(basePath, dataDirName)),
+		data:              newDataStore(filepath.Join(basePath, dataDirName), opts.Compression),
 		maxFileSize:       defaultMaxFileSize,
 	}
 	initialized := false
@@ -1030,6 +1034,12 @@ func (i *Indexer) CleanupDataFiles() (int, int, error) {
 		return htmlRemoved, faviconRemoved, fmt.Errorf("failed to clean up orphaned favicon data files: %w", err)
 	}
 	return htmlRemoved, faviconRemoved, nil
+}
+
+// RecompressData converts stored HTML and favicon files to the configured
+// compression codec.
+func (i *Indexer) RecompressData() (RecompressStats, error) {
+	return i.data.Recompress()
 }
 
 func (i *Indexer) ReadFavicon(key string) ([]byte, error) {

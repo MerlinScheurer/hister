@@ -703,7 +703,7 @@ func TestAddDocumentAndMultiBatchUseSamePreparation(t *testing.T) {
 			if copies := countDocIDCopies(t, idx, document.GetDocID(0, url)); copies != 1 {
 				t.Fatalf("document copies = %d, want 1", copies)
 			}
-			if _, err := os.Stat(dataFilePath(idx.dir, htmlSubdir, oldHTMLKey)); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Stat(dataFilePathExt(idx.dir, htmlSubdir, oldHTMLKey, gzipExt)); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("old preview file stat error = %v, want not found", err)
 			}
 		})

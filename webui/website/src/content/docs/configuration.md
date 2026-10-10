@@ -1143,6 +1143,8 @@ indexer:
   languages: []
 ```
 
+**Compression**: `indexer.compression` selects the codec for stored HTML previews and favicons: `gzip` (default) or `zstd`. Existing files in either format remain readable after a change, so no reindex/recompress is required. But running a recompress is recommended.
+
 **Accuracy and memory**: `indexer.language_detection_accuracy` accepts `low` (the default) or `high`. Omitting the setting or leaving it empty selects low accuracy, including in configurations created before this option existed. Low accuracy loads only trigram models. Both modes use trigrams for text of at least 120 letters, but high accuracy also uses other model sizes for shorter text. Low accuracy can be less reliable on short text and may return `unknown`, which uses the default index. Script rules can still identify some very short text in either mode. Set `language_detection_accuracy: high` to restore the previous behavior for short text. Lingua caches loaded models for the lifetime of the process, so restart Hister after changing these settings to release models already loaded.
 
 The default combination of `language_detection_accuracy: low` and `languages: []` retains all supported languages while reducing memory use. The [measurements reported in PR #584](https://github.com/asciimoo/hister/pull/584#issuecomment-5304219844) found that low accuracy reduced Lingua's heap from about 377 MB to 18.5 MB with all 30 supported languages. Restricting low accuracy detection to four languages reduced it further to about 3.6 MB. These are measurements from one corpus, not memory guarantees or an accuracy benchmark.
