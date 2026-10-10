@@ -301,6 +301,7 @@ func init() {
 	addOutputFormatFlag(doctorCmd)
 	rootCmd.AddCommand(listURLsCmd)
 	rootCmd.AddCommand(listFilesCmd)
+	rootCmd.AddCommand(recompressCmd)
 	rootCmd.AddCommand(indexCmd)
 	rootCmd.AddCommand(exportCmd)
 	rootCmd.AddCommand(importCmd)

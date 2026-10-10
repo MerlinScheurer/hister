@@ -143,6 +143,22 @@ type Indexer struct {
 	MaxFileSize               int64        `yaml:"max_file_size_mb" mapstructure:"max_file_size_mb"`
 	Languages                 []string     `yaml:"languages" mapstructure:"languages"`
 	LanguageDetectionAccuracy string       `yaml:"language_detection_accuracy" mapstructure:"language_detection_accuracy"`
+	// Compression selects the codec used for newly stored HTML and favicon
+	// data: "gzip" (default) or "zstd". Existing files in either format remain readable.
+	Compression string `yaml:"compression" mapstructure:"compression"`
+}
+
+const (
+	CompressionGzip = "gzip"
+	CompressionZstd = "zstd"
+)
+
+// StorageCompression returns the configured codec for stored data, defaulting to gzip.
+func (i Indexer) StorageCompression() string {
+	if i.Compression == "" {
+		return CompressionGzip
+	}
+	return i.Compression
 }
 
 const (
@@ -160,6 +176,11 @@ func (i Indexer) LowAccuracyLanguageDetection() bool {
 // detector supports. The codes themselves are validated in server/document,
 // which owns that list; config keeps no dependency on it.
 func (i Indexer) Validate() error {
+	switch i.Compression {
+	case "", CompressionGzip, CompressionZstd:
+	default:
+		return fmt.Errorf("invalid indexer.compression %q: must be %q or %q", i.Compression, CompressionGzip, CompressionZstd)
+	}
 	switch i.LanguageDetectionAccuracy {
 	case "", LanguageDetectionAccuracyHigh, LanguageDetectionAccuracyLow:
 	default:
@@ -621,6 +642,7 @@ func CreateDefaultConfig() *Config {
 			KeepStopwords:             false,
 			MaxFileSize:               1,
 			LanguageDetectionAccuracy: LanguageDetectionAccuracyLow,
+			Compression:               CompressionGzip,
 		},
 		Crawler: CrawlerConfig{
 			Backend: "http",
