@@ -24,8 +24,6 @@ const (
 	faviconSubdir = "favicon"
 )
 
-// Data files are named after their codec: <key>.gz or <key>.zst. Reads accept
-// either extension so the configured codec can change without migrating data.
 const (
 	gzipExt = ".gz"
 	zstdExt = ".zst"
@@ -152,7 +150,7 @@ func (ds *dataStore) cleanup(field, subdir string, refCount func(string, string)
 			log.Warn().Err(err).Str("path", path).Msg("error accessing data file during cleanup")
 			return nil
 		}
-		if info.IsDir() || !isStoredExt(filepath.Ext(path)) {
+		if info.IsDir() || !isValidCompressionExt(filepath.Ext(path)) {
 			return nil
 		}
 		// Reconstruct the key from the 3-level directory prefix + filename.
@@ -184,14 +182,8 @@ func (ds *dataStore) cleanup(field, subdir string, refCount func(string, string)
 	return removed, err
 }
 
-func isStoredExt(ext string) bool {
+func isValidCompressionExt(ext string) bool {
 	return ext == gzipExt || ext == zstdExt
-}
-
-// dataFilePath returns the gzip path for a stored data file, the historical
-// layout. Layout: {dataDir}/{subdir}/{key[0:2]}/{key[2:4]}/{key[4:6]}/{key[6:]}.gz
-func dataFilePath(dataDir, subdir, key string) string {
-	return dataFilePathExt(dataDir, subdir, key, gzipExt)
 }
 
 func dataFilePathExt(dataDir, subdir, key, ext string) string {
@@ -238,6 +230,7 @@ func writeDataFile(fpath string, data []byte) (err error) {
 			err = fmt.Errorf("close data file: %w", cerr)
 		}
 		if err != nil {
+			log.Warn().Err(err).Str("path", fpath).Msg("removing partial file after writing error")
 			_ = os.Remove(fpath)
 		}
 	}()
@@ -249,13 +242,10 @@ func writeDataFile(fpath string, data []byte) (err error) {
 
 // RecompressStats reports the result of a recompression pass.
 type RecompressStats struct {
-	Converted int
-	// Skipped counts files already in the target codec.
-	Skipped int
-	// Unrecognized counts stored files whose path does not match the data layout.
+	Converted    int
+	Skipped      int
 	Unrecognized int
-	// Unreadable counts stored files that failed to decode and were left in place.
-	Unreadable int
+	Unreadable   int
 }
 
 // recompress rewrites every data file under subdir that is not already in the
@@ -266,20 +256,20 @@ func (ds *dataStore) recompress(subdir string, stats *RecompressStats) error {
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		return nil
 	}
-	target := extForCompression(ds.compression)
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	targetCompression := extForCompression(ds.compression)
+	return filepath.Walk(root, func(oldPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() || !isStoredExt(filepath.Ext(path)) {
+		if info.IsDir() || !isValidCompressionExt(filepath.Ext(oldPath)) {
 			return nil
 		}
-		ext := filepath.Ext(path)
-		if ext == target {
+		ext := filepath.Ext(oldPath)
+		if ext == targetCompression {
 			stats.Skipped++
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
+		rel, err := filepath.Rel(root, oldPath)
 		if err != nil {
 			return err
 		}
@@ -292,21 +282,23 @@ func (ds *dataStore) recompress(subdir string, stats *RecompressStats) error {
 		mu := ds.shard(key)
 		mu.Lock()
 		defer mu.Unlock()
-		data, err := readDataPath(path, ext)
+		data, err := readDataPath(oldPath, ext)
 		if err != nil {
 			// Leave unreadable files in place so nothing is lost; report and continue.
-			log.Warn().Err(err).Str("path", path).Msg("skipping unreadable data file")
+			log.Warn().Err(err).Str("path", oldPath).Msg("skipping unreadable data file")
 			stats.Unreadable++
 			return nil
 		}
-		newPath := dataFilePathExt(ds.dir, subdir, key, target)
+		newPath := dataFilePathExt(ds.dir, subdir, key, targetCompression)
 		if _, statErr := os.Stat(newPath); statErr != nil {
-			if err := writeDataFile(newPath, data); err != nil {
+			err := writeDataFile(newPath, data)
+			if err != nil {
+				log.Warn().Err(err).Str("path", oldPath).Msg("recompress: removing partial file after writing error")
 				_ = os.Remove(newPath)
 				return err
 			}
 		}
-		if err := os.Remove(path); err != nil {
+		if err := os.Remove(oldPath); err != nil {
 			return fmt.Errorf("remove old data file: %w", err)
 		}
 		stats.Converted++
@@ -367,7 +359,7 @@ func writeZstd(f io.Writer, data []byte) error {
 }
 
 // readFileLocked decompresses and returns the data file identified by key. The
-// preferred codec is tried first, then the other one, so files written before
+// preferred codec is tried first, then the gzip, so files written before
 // the codec was changed remain readable. The caller must hold the relevant shard lock.
 func readFileLocked(dataDir, subdir, key, compression string) ([]byte, error) {
 	preferred := extForCompression(compression)

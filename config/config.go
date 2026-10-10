@@ -143,9 +143,7 @@ type Indexer struct {
 	MaxFileSize               int64        `yaml:"max_file_size_mb" mapstructure:"max_file_size_mb"`
 	Languages                 []string     `yaml:"languages" mapstructure:"languages"`
 	LanguageDetectionAccuracy string       `yaml:"language_detection_accuracy" mapstructure:"language_detection_accuracy"`
-	// Compression selects the codec used for newly stored HTML and favicon
-	// data: "gzip" (default) or "zstd". Existing files in either format remain readable.
-	Compression string `yaml:"compression" mapstructure:"compression"`
+	Compression               string       `yaml:"compression" mapstructure:"compression"` // default: gzip  options: gzip, zstd
 }
 
 const (
@@ -153,7 +151,6 @@ const (
 	CompressionZstd = "zstd"
 )
 
-// StorageCompression returns the configured codec for stored data, defaulting to gzip.
 func (i Indexer) StorageCompression() string {
 	if i.Compression == "" {
 		return CompressionGzip
@@ -181,6 +178,7 @@ func (i Indexer) Validate() error {
 	default:
 		return fmt.Errorf("invalid indexer.compression %q: must be %q or %q", i.Compression, CompressionGzip, CompressionZstd)
 	}
+
 	switch i.LanguageDetectionAccuracy {
 	case "", LanguageDetectionAccuracyHigh, LanguageDetectionAccuracyLow:
 	default:

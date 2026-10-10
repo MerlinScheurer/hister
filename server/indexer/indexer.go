@@ -90,7 +90,7 @@ type indexOptions struct {
 	Languages []string
 	// LowAccuracy restricts lingua to its trigram models.
 	LowAccuracy bool
-	// Compression is the codec for newly stored HTML and favicon data.
+	// Compression is the codec for stored HTML and favicon data.
 	Compression string
 }
 
@@ -1037,8 +1037,7 @@ func (i *Indexer) CleanupDataFiles() (int, int, error) {
 }
 
 // RecompressData converts stored HTML and favicon files to the configured
-// compression codec. The indexer must not be serving requests that write data
-// files while this runs.
+// compression codec.
 func (i *Indexer) RecompressData() (RecompressStats, error) {
 	return i.data.Recompress()
 }

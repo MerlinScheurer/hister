@@ -37,7 +37,8 @@ func TestDataStoreCompressionRoundTrip(t *testing.T) {
 func TestRecompressConvertsToConfiguredCodec(t *testing.T) {
 	dir := t.TempDir()
 	gz := newDataStore(dir, "gzip")
-	key, err := gz.write(htmlSubdir, []byte("<p>old</p>"))
+	inputString := "<p>old</p>"
+	key, err := gz.write(htmlSubdir, []byte(inputString))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestRecompressConvertsToConfiguredCodec(t *testing.T) {
 	if _, err := os.Stat(dataFilePathExt(dir, htmlSubdir, key, gzipExt)); !os.IsNotExist(err) {
 		t.Fatalf("gzip file still present: %v", err)
 	}
-	if got, err := zs.read(htmlSubdir, key); err != nil || string(got) != "<p>old</p>" {
+	if got, err := zs.read(htmlSubdir, key); err != nil || string(got) != inputString {
 		t.Fatalf("read after recompress = %q, %v", got, err)
 	}
 	stats, err = zs.Recompress()
